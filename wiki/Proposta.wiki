@@ -1,0 +1,84 @@
+#summary One-sentence summary of this page.
+
+= Introdução =
+
+Em muitas áreas da ciência da computação, assegurar a qualidade e a robustez dos sistemas de software é de grande importância. Para tal, várias ferramentas foram propostas ao longo dos anos. A maioria delas tem por objetivo auxiliar o desenvolvedores e usuários a encontrar bugs. 
+
+Uma importante classe de bugs está relacionada a problemas no hardware e a falhas em chamadas do sistema. Eles ocorrem quando o código não é preparado para lidar com situações extremas, tais como falhas de alocação de memória, atrasos de comunicação ou pequenos defeitos em componentes eletrônicos. Esses bugs são de interesse por serem de difícil detecção e também pelo fato de que tais situações extremas são raramente tratadas pelos desenvolvedores.
+
+Nesse projeto da disciplina de Sistemas Operacionais, que tem como intuito familiarizar os alunos com o código do núcleo de um sistema operacional, propomos um arcabouço capaz de simular falhas em hardware e chamadas de sistema de maneira controlada. Os objetivos são facilitar a detecção de bugs e avaliar a robustez de alguns projetos open-source conhecidos. 
+
+A construção de tal arcabouço só é factível em função da existência de sistemas operacionais de código aberto. Dentre eles, optamos pela utilização do Linux por diversos motivos: (i) documentação amplamente disponível na web, (ii) gratuidade, (iii) eificência e (iv) popularidade.
+
+A ideia de software livre surgiu por volta de 1984, com o projeto GNU, em que se deu a idealização de um sistema operacional livre compatível com o Unix. Apesar de ainda não ter sido concretizada nenhuma versão desse sistema, uma série de programas, compiladores, editores, foram desenvolvidos para serem utilizados pelo GNU. O surgimento do Linux se deu com a criação de um núcleo capaz de utilizar todos esses elementos do sistema operacional GNU. O nome Linux, surgiu da combinação entre os nome Linus, seu criador, e Unix.
+
+= Motivação =
+
+A história da ciência da computação é repleta de episódios em que falhas no projeto ou na implementação de sistemas de software e hardware trouxeram conseqüências drásticas para organizações ou indivíduos. Exemplos famosos incluem: (i) problemas com divisão de ponto flutuante no Pentium II, com custo estimado em US$475 milhões, (ii) falhas no sistema de cálculo de níveis de radiação para radio-terapia utilizado pelo National Cancer Institute da cidade do Panamá, que resultaram em 8 mortes e 20 envenenamentos por radiação e (iii) um problema com o sistema de alerta da antiga União Soviética, que indicou erroneamente que 5 mísseis balísticos haviam sido lançados pelos Estados Unidos no auge da guerra fria; um incidente que, felizmente, não levou a uma terceira guerra mundial porque o oficial encarregado acreditou que um ataque americano real envolveria mais de 5 mísseis (!!!).  Mais comuns - mas igualmente importantes - são falhas de conseqüências menos graves. Um estudo realizado pelo departamento de defesa americano em 2002 [3] estimou seu custo em 59 bilhões de dólares, cerca de 0.6% do produto interno bruto daquele país à época.
+
+Tendo isso em vista, várias abordagens foram propostas ao longo do tempo para identificar bugs. Verificaçao Formal, análise estática de código e debuggers são alguns exemplos. A maioria dessas abordagens tenta detectar falhas partindo do pressuposto de que tanto o hardware quanto o sistema operacional irão funcionar adequadamente durante a execução do software. Embora essa hipótese seja razoável para a maioria das aplicações, ela nem sempre é verificada na prática.
+
+Faz sentido, por tanto, construir ferramentas que permitam avaliar a robustez de pacotes de software sobre situações extremas. Esse é o cerne de nossa proposta.
+
+= Proposta = 
+
+O projeto tem por objetivo realizar uma série de alterações no código do kernel que permitam que o sistema operacional seja capaz de simular ambientes de computação de diferentes níveis de confiabilidade para diferentes processos. Utilizando essas alterações, pretendemos conduzir uma série de testes de robustez em diversos projetos open-source populares. Os testes permitirão que identifiquemos como esses projetos se comportam face a situações extremas tais como: falta de memória, falhas em disco, corrupção de arquivos e atrasos de comunicação. Acreditamos que esse tipo de informação será de grande utilidade tanto para administradores de sistemas quanto para desenvolvedores. 
+
+Nossos esforços se concentrarão em quatro subsistemas do kernel, listados abaixo por ordem de dificuldade de implementação:
+ # Sistema de alocação de memória
+ # Descritores de arquivo e sistema de paginação
+ # Escalonamento
+ # Subsistema de rede
+
+A ideia é fornecer chamadas de sistema que permitam a um usuário definir quais tipos de falha deverão ocorrer em cada uma dessas categorias e com qual probabilidade. Esses ajustes poderão ser feitos por processo, de modo que o restante do sistema permaneça estável durante os testes.
+
+Cada subsistema corresponde a uma etapa de implementação e também a um conjunto de falhas de hardware e software que pretendemos simular. As etapas serão implementadas em ordem de dificuldade e de acordo com um cronograma incluído nesse documento. 
+
+A seguir, apresentamos detalhes sobre cada uma dessas etapas, incluindo os tipos de falhas que pretendemos simular em cada subsistema. Também fornecemos uma visão geral do ambiente de desenvolvimento que pretendemos adotar e um conjunto de programas que poderão ser testados.
+
+= Execução =
+
+Para o desenvolvimento e teste desse projeto, serão usados a máquina virtual VirtualBox 4.0.6, a distribuição Linux Ubuntu 10.04 LTS, GCC 4.4.3 e o kernel do linux versão 2.6.32.38.  É possível que outras ferramentas sejam utilizadas durante o desenvolvimento.
+
+A variedade de falhas e condições extremas que podem ser simuladas é muito grande. Por isso, escolhemos partes do sistema nas quais pretendemos focar. A seguir, são apresentadas algumas falhas possíveis em cada uma das partes escolhidas, assim como uma ideia superficial de como essas falhas poderiam ser simuladas pelo kernel do Linux.
+
+== Sistema de alocação de memória ==
+
+Alocar memória dinâmicamente é uma operação muito comum que pode falhar em caso de memória insuficiente, dentre outros. A maioria dos programas pode simplesmente terminar sua execução quando tiver um pedido de alocação de memória negado. Porém, para alguns sistemas, o fim da execução pode não ser uma boa alternativa. Um exemplo é um servidor web que hospeda um site de notícias que acabou de publicar uma notícia de amplo interesse. O número de acessos a esse site pode crescer muito e isso pode levar a um esgotamento da memória do servidor. Se a execução do servidor web for interrompida, o site irá sair do ar. Se ela não for interrompida, o sistema continuará funcionando, mesmo que lentamente.
+
+No Linux, existe uma chamada de sistema que é usada para alocar blocos de memória. Portanto, para fazermos com que o sistema de alocação de memória passe a se comportar como se não houvesse memória disponível, podemos modificar essa função para que ela informe uma falha que indica que a memória disponível é insuficiente para alocar o bloco requisitado. Foi justamente por ser mais simples que a adaptação do sistema de alocação de memória foi escolhida como primeira a ser implementada.
+
+
+== Descritores de arquivos e paginação ==
+
+Operações envolvendo arquivos também são muito comuns e podem falhar por muitos motivos como falta de espaço em disco, memória insuficiente, erros de entrada e saída em nível de hardware, muitos arquivos abertos em um mesmo processo, muitos arquivos abertos em todo o sistema, o arquivo estar sendo acessado por outro processo,  dentre outros.  Algumas dessas falhas são contornáveis ou até mesmo esperadas, dependendo da aplicação. Certamente, é difícil se recuperar de uma falha em nível de hardware. Porém, falhas como insuficiência de memória e o compartilhamento de arquivos são mais simples e é esperado que certos sistemas, como sistemas de banco de dados, por exemplo, sejam capazes de lidar com elas.
+
+Apesar da maneira de implementar as modificações necessárias no Linux para sermos capazes de simular esses tipos falhas ser parecida com a maneira de implementar a simulação de falhas no sistema de alocação de memória, o conjunto de chamadas de sistema afetadas é bem maior e as falhas são mais complicadas. Isso, certamente, torna a simulação desse tipo de falha mais difícil.
+
+== Escalonamento ==
+
+Programas em nível de usuários normalmente não interagem com o escalonador explicitamente. Mesmo assim, mudanças no escalonador podem ser úteis na detecção de falhas em programas multi-thread ou até mesmo na sincronização entre processos. Uma forma de usar o escalonador para esse propósito é fazendo com que as trocas de contexto envolvendo threads do processo testado ocorram apenas entre duas threads desse processo. No caso da sincronização entre processos, o mesmo pode ser feito considerando o conjunto das threads de todos os processos envolvidos.
+
+Uma vez que não é possível obter esse comportamento apenas manipulando campos das estruturas internas que representam processos no Linux, modificações no código do escalonador serão necessárias. Apesar de ainda não termos definido como implementaremos tais modificações, uma forma de fazê-lo é adicionando campos na estrutura que representa um processo internamente para indicar entre threads de quais processos trocas de contexto podem ocorrer e modificando o código do escalonador para forçar as trocas de contexto desejadas.
+
+== Subsistema de rede ==
+
+Falhas na comunicação envolvendo redes de computadores são um problema comum. Se um computador da rede parar, por exemplo, a comunicação com ele deixa de funcionar e, consequentemente, os serviços nos demais computadores da rede também podem deixar de funcionar. Alguns sistemas distribuídos são projetados para oferecer um certo nível de tolerância a falhas de rede. Meios de simular essas falhas podem ser úteis para avaliar essa tolerância de forma rápida e auxiliar os administradores e desenvolvedores a melhorá-la.
+
+O subsistema de rede do Linux é dividido em várias camadas responsáveis por níveis diferente de abstração da rede. Isso permite a simulação de falhas na comunicação de baixo nível entre placas de rede a falhas em nível de protocolo. Obviamente, falhas em níveis mais baixos podem causar falhas em níveis mais altos. Por isso, a escolha do conjunto de falhas a serem simuladas é complicada.
+
+Devido a complexidade do subsistema de rede e das falhas que podem ocorrer, os mecanismos para simulá-las são mais complexos que os usados para simular as demais falhas. A análise de comportamento de programas submetidos a essas falhas também é mais difícil.
+
+== Softwares a serem testados ==
+
+Abaixo temos uma lista do softwares que pretendemos testar. É importante ressaltar que essa não é uma lista definitiva. Se for conveniente, alguns podem ser removidos e outros acrescentados.
+ # Apache
+ # MySql
+ # Hypertable
+ # Python
+ # Ruby
+ # Firefox
+
+= Considerações Finais =
+
+Nesse relatório, propusemos um projeto que tem por objetivo introduzir alterações no kernel que permitam simular falhas de hardware e software para alguns dos programa em execução. Este primeiro módulo apresenta-nos o modelo de execução inicialmente pretendido, podendo sofrer algumas alterações à medida que considerarmos pertinente inserir algum recurso adicional ou eliminar algum tipo de implementação. Com base nessas alterações, pretendemos realizar um estudo de robustez de alguns projetos open-source populares. Acreditamos que o estudo possa ser útil para a comunidade de usuários e também para os desenvolvedores envolvidos. 
